@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personal Financial Planner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex items-center justify-center p-4">
+    <div class="container max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">Personal Financial Planner</h1>
+
+        <!-- Income Section -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4">Income Bucket</h2>
+            <form id="income-form" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <input type="number" id="income-amount" placeholder="Amount" min="0" step="0.01" required
+                           class="border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="date" id="income-date" required
+                           class="border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="income-desc" placeholder="Description"
+                           class="border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">Add Income</button>
+                <p id="income-error" class="text-red-500 text-sm"></p>
+            </form>
+            <div class="mt-4 bg-blue-50 p-4 rounded-lg text-center">
+                <h3 class="text-lg font-medium text-gray-700">Total Income</h3>
+                <p id="total-income" class="text-2xl font-bold text-blue-600">0</p>
+            </div>
+        </div>
+
+        <!-- Expenses Section -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4">Add Expense</h2>
+            <form id="expense-form" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <input type="number" id="expense-amount" placeholder="Amount" min="0" step="0.01" required
+                           class="border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <select id="expense-category" required
+                            class="border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500"></select>
+                    <input type="text" id="expense-tags" placeholder="Tags (comma-separated)"
+                           class="border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="date" id="expense-date" required
+                           class="border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <input type="text" id="expense-desc" placeholder="Description"
+                           class="border border-gray-300 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">Add Expense</button>
+            </form>
+        </div>
+
+        <!-- Dashboard Section -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4">Dashboard</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-green-50 p-4 rounded-lg text-center">
+                    <h3 class="text-lg font-medium text-gray-700">Total Expenses</h3>
+                    <p id="total-expenses" class="text-2xl font-bold text-green-600">0</p>
+                </div>
+                <div class="bg-purple-50 p-4 rounded-lg text-center">
+                    <h3 class="text-lg font-medium text-gray-700">Balance</h3>
+                    <p id="balance" class="text-2xl font-bold text-purple-600">0</p>
+                </div>
+            </div>
+            <h3 class="text-xl font-medium text-gray-600 mt-6">Expenses by Bucket</h3>
+            <table id="category-breakdown" class="w-full mt-2 border-collapse bg-white shadow rounded-lg"></table>
+            <h3 class="text-xl font-medium text-gray-600 mt-6">Expenses by Tag</h3>
+            <table id="tag-breakdown" class="w-full mt-2 border-collapse bg-white shadow rounded-lg"></table>
+            <button id="print-dashboard" class="mt-4 bg-green-600 text-white py-2 px-4 rounded-lg hover:bg-green-700 transition">Print Dashboard as Image</button>
+        </div>
+
+        <!-- Income and Expense Entries Section -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-semibold text-gray-700 mb-4">Income and Expense Entries</h2>
+            <div id="income-list" class="mt-4"></div>
+            <div id="buckets" class="space-y-6 mt-6"></div>
+            <form id="category-form" class="mt-4 space-y-4">
+                <input type="text" id="new-category" placeholder="New Bucket Name"
+                       class="border border-gray-300 rounded-lg p-2 w-full focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition">Add Bucket</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Data Structure
+        let data = JSON.parse(localStorage.getItem('financialData')) || {
+            income: [],
+            expenses: [],
+            categories: ['Utilities', 'Settlements', 'Unplanned']
+        };
+
+        // Save data to localStorage (simulating JSON file storage)
+        function saveData() {
+            localStorage.setItem('financialData', JSON.stringify(data));
+        }
+
+        // Update UI
+        function updateUI() {
+            console.log('Data.income:', data.income); // Debugging to check data structure
+
+            // Update categories dropdown
+            const categorySelect = document.getElementById('expense-category');
+            categorySelect.innerHTML = '<option value="" disabled selected>Select Bucket</option>';
+            data.categories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                categorySelect.appendChild(option);
+            });
+
+            // Update income list with separated columns
+            const incomeList = document.getElementById('income-list');
+            incomeList.innerHTML = '<h3 class="text-lg font-medium text-gray-600">Income Entries</h3><table class="w-full border-collapse mt-2"><tr class="bg-gray-100"><th class="border p-2 text-left">Amount</th><th class="border p-2 text-left">Date</th><th class="border p-2 text-left">Description</th><th class="border p-2 text-left">Action</th></tr>';
+            data.income.forEach((inc, index) => {
+                incomeList.innerHTML += `<tr><td class="border p-2">${typeof inc.amount === 'number' ? inc.amount.toFixed(2) : inc.amount}</td><td class="border p-2">${inc.date || 'N/A'}</td><td class="border p-2">${inc.description || 'No description'}</td><td class="border p-2"><button class="bg-red-500 text-white py-1 px-2 rounded hover:bg-red-600" onclick="removeIncome(${index})">Remove</button></td></tr>`;
+            });
+            incomeList.innerHTML += '</table>';
+
+            // Update expense buckets
+            const buckets = document.getElementById('buckets');
+            buckets.innerHTML = ''; // Clear existing buckets
+            data.categories.forEach(category => {
+                const bucketDiv = document.createElement('div');
+                bucketDiv.id = `${category}-bucket`;
+                bucketDiv.innerHTML = `<h3 class="text-xl font-medium text-gray-600">${category}</h3><div id="${category}-list" class="mt-2 bg-gray-50 p-4 rounded-lg"></div>`;
+                buckets.appendChild(bucketDiv);
+
+                const bucketList = document.getElementById(`${category}-list`);
+                bucketList.innerHTML = '<table class="w-full border-collapse"><tr class="bg-gray-100"><th class="border p-2 text-left">Amount</th><th class="border p-2 text-left">Tags</th><th class="border p-2 text-left">Date</th><th class="border p-2 text-left">Description</th><th class="border p-2 text-left">Action</th></tr>';
+                const bucketExpenses = data.expenses.filter(exp => exp.category === category);
+                bucketExpenses.forEach((exp, index) => {
+                    bucketList.innerHTML += `<tr><td class="border p-2">${exp.amount.toFixed(2)}</td><td class="border p-2">${exp.tags.join(', ') || 'N/A'}</td><td class="border p-2">${exp.date}</td><td class="border p-2">${exp.description || 'No description'}</td><td class="border p-2"><button class="bg-red-500 text-white py-1 px-2 rounded hover:bg-red-600" onclick="removeExpense(${index})">Remove</button></td></tr>`;
+                });
+                bucketList.innerHTML += '</table>';
+            });
+
+            // Calculate totals
+            const totalIncome = data.income.reduce((sum, inc) => sum + (typeof inc.amount === 'number' ? inc.amount : 0), 0);
+            const totalExpenses = data.expenses.reduce((sum, exp) => sum + exp.amount, 0);
+            const balance = totalIncome - totalExpenses;
+
+            document.getElementById('total-income').textContent = totalIncome.toFixed(2);
+            document.getElementById('total-expenses').textContent = totalExpenses.toFixed(2);
+            document.getElementById('balance').textContent = balance.toFixed(2);
+
+            // Category breakdown
+            const catBreakdown = {};
+            data.expenses.forEach(exp => {
+                catBreakdown[exp.category] = (catBreakdown[exp.category] || 0) + exp.amount;
+            });
+            const catTable = document.getElementById('category-breakdown');
+            catTable.innerHTML = '<tr class="bg-gray-100"><th class="border p-2 text-left">Bucket</th><th class="border p-2 text-left">Total</th></tr>';
+            Object.entries(catBreakdown).forEach(([cat, total]) => {
+                catTable.innerHTML += `<tr><td class="border p-2">${cat}</td><td class="border p-2">${total.toFixed(2)}</td></tr>`;
+            });
+
+            // Tag breakdown
+            const tagBreakdown = {};
+            data.expenses.forEach(exp => {
+                exp.tags.forEach(tag => {
+                    tagBreakdown[tag] = (tagBreakdown[tag] || 0) + exp.amount;
+                });
+            });
+            const tagTable = document.getElementById('tag-breakdown');
+            tagTable.innerHTML = '<tr class="bg-gray-100"><th class="border p-2 text-left">Tag</th><th class="border p-2 text-left">Total</th></tr>';
+            Object.entries(tagBreakdown).forEach(([tag, total]) => {
+                tagTable.innerHTML += `<tr><td class="border p-2">${tag}</td><td class="border p-2">${total.toFixed(2)}</td></tr>`;
+            });
+        }
+
+        // Add Income with validation
+        document.getElementById('income-form').addEventListener('submit', e => {
+            e.preventDefault();
+            const errorElement = document.getElementById('income-error');
+            errorElement.textContent = '';
+
+            const amountInput = document.getElementById('income-amount');
+            const amount = parseFloat(amountInput.value);
+            const date = document.getElementById('income-date').value;
+            const desc = document.getElementById('income-desc').value.trim();
+
+            // Validate amount
+            if (isNaN(amount) || amount <= 0) {
+                errorElement.textContent = 'Please enter a valid positive amount.';
+                return;
+            }
+
+            // Validate date
+            if (!date) {
+                errorElement.textContent = 'Please select a valid date.';
+                return;
+            }
+
+            // Add income with structured data
+            data.income.push({ 
+                amount: parseFloat(amount.toFixed(2)), 
+                date: date, 
+                description: desc || 'No description' 
+            });
+            saveData();
+            updateUI();
+            e.target.reset();
+        });
+
+        // Add Category
+        document.getElementById('category-form').addEventListener('submit', e => {
+            e.preventDefault();
+            const newCat = document.getElementById('new-category').value.trim();
+            if (newCat && !data.categories.includes(newCat)) {
+                data.categories.push(newCat);
+                saveData();
+                updateUI();
+            }
+            e.target.reset();
+        });
+
+        // Add Expense
+        document.getElementById('expense-form').addEventListener('submit', e => {
+            e.preventDefault();
+            const amount = parseFloat(document.getElementById('expense-amount').value);
+            const category = document.getElementById('expense-category').value;
+            const tagsStr = document.getElementById('expense-tags').value;
+            const tags = tagsStr ? tagsStr.split(',').map(t => t.trim()).filter(t => t) : [];
+            const date = document.getElementById('expense-date').value;
+            const desc = document.getElementById('expense-desc').value.trim();
+            
+            if (isNaN(amount) || amount <= 0) {
+                alert('Please enter a valid positive amount.');
+                return;
+            }
+            if (!category) {
+                alert('Please select a bucket.');
+                return;
+            }
+            if (!date) {
+                alert('Please select a valid date.');
+                return;
+            }
+
+            data.expenses.push({ 
+                amount: parseFloat(amount.toFixed(2)), 
+                category, 
+                tags, 
+                date, 
+                description: desc || 'No description' 
+            });
+            saveData();
+            updateUI();
+            e.target.reset();
+        });
+
+        // Remove Income
+        window.removeIncome = function(index) {
+            data.income.splice(index, 1);
+            saveData();
+            updateUI();
+        };
+
+        // Remove Expense
+        window.removeExpense = function(index) {
+            data.expenses.splice(index, 1);
+            saveData();
+            updateUI();
+        };
+
+        // Print Dashboard as Image
+        document.getElementById('print-dashboard').addEventListener('click', () => {
+            const dashboard = document.querySelector('.mb-8:nth-child(3)'); // Targets the dashboard div
+            html2canvas(dashboard).then(canvas => {
+                const link = document.createElement('a');
+                link.download = 'dashboard.png';
+                link.href = canvas.toDataURL('image/png');
+                link.click();
+            });
+        });
+
+        // Initial Update
+        updateUI();
+    </script>
+</body>
+</html>
